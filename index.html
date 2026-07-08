@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Сайт проекта автоматического сохранения конфигурации плат по Telnet с проверкой Shelf ID.">
+    <title>Telnet Config Saver</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Telnet Config Saver">
+        <span class="brand-mark">TC</span>
+        <span>Telnet Config Saver</span>
+      </a>
+      <nav class="nav" aria-label="Главная навигация">
+        <a href="#workflow">Алгоритм</a>
+        <a href="#report">Отчет</a>
+        <a href="#safety">Безопасность</a>
+        <a class="nav-action" href="#setup">Запуск</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Python-автоматизация для сетевого оборудования</p>
+          <h1>Сохраняет конфигурацию только после проверки Shelf ID</h1>
+          <p class="hero-text">
+            Приложение проходит по IP-адресам из Excel, проверяет доступность, авторизуется по Telnet,
+            сверяет Shelf ID и выполняет <code>save conf</code> только при полном совпадении.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#setup">Посмотреть запуск</a>
+            <a class="button secondary" href="#workflow">Изучить алгоритм</a>
+          </div>
+        </div>
+
+        <div class="terminal-panel" aria-label="Демонстрация выполнения">
+          <div class="terminal-top">
+            <span></span>
+            <span></span>
+            <span></span>
+            <strong>save_conf.log</strong>
+          </div>
+          <div class="terminal-body" id="terminalLog">
+            <p><span>10:18:02</span> 192.168.1.10 ping OK</p>
+            <p><span>10:18:04</span> Telnet login success</p>
+            <p><span>10:18:05</span> Shelf ID: A-204 expected A-204</p>
+            <p><span>10:18:06</span> save conf executed</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats-band" aria-label="Ключевые параметры">
+        <article>
+          <strong>3</strong>
+          <span>попытки входа</span>
+        </article>
+        <article>
+          <strong>23</strong>
+          <span>порт Telnet</span>
+        </article>
+        <article>
+          <strong>2 сек</strong>
+          <span>timeout ping</span>
+        </article>
+        <article>
+          <strong>XLSX</strong>
+          <span>вход и отчет</span>
+        </article>
+      </section>
+
+      <section class="section-grid" id="workflow">
+        <div class="section-heading">
+          <p class="eyebrow">Логика обработки</p>
+          <h2>Понятный маршрут для каждого IP</h2>
+          <p>
+            Ошибка на одной плате не останавливает обработку остальных устройств.
+            Каждый результат попадает в отчет и лог.
+          </p>
+        </div>
+
+        <div class="workflow-list">
+          <article class="step active" data-log="ping">
+            <span>01</span>
+            <h3>Ping</h3>
+            <p>Если устройство недоступно, статус сразу фиксируется как «Недоступен (Ping)».</p>
+          </article>
+          <article class="step" data-log="telnet">
+            <span>02</span>
+            <h3>Telnet</h3>
+            <p>Подключение к порту 23 и до трех попыток авторизации.</p>
+          </article>
+          <article class="step" data-log="shelf">
+            <span>03</span>
+            <h3>Shelf ID</h3>
+            <p>Команда <code>show shelf-id</code> возвращает значение для сравнения с Excel.</p>
+          </article>
+          <article class="step" data-log="save">
+            <span>04</span>
+            <h3>Save</h3>
+            <p><code>save conf</code> выполняется только при совпадении Shelf ID.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="report-section" id="report">
+        <div>
+          <p class="eyebrow">report.xlsx</p>
+          <h2>Отчет показывает, что произошло с каждой платой</h2>
+          <p>
+            В итоговой таблице видны ожидаемый и полученный Shelf ID, финальный статус и короткий комментарий.
+          </p>
+        </div>
+
+        <div class="table-wrap" role="region" aria-label="Пример отчета">
+          <table>
+            <thead>
+              <tr>
+                <th>IP</th>
+                <th>Ожидаемый</th>
+                <th>Полученный</th>
+                <th>Статус</th>
+                <th>Комментарий</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>192.168.1.10</td>
+                <td>A-204</td>
+                <td>A-204</td>
+                <td><span class="status success">Сохранена</span></td>
+                <td>Shelf ID совпадает</td>
+              </tr>
+              <tr>
+                <td>192.168.1.11</td>
+                <td>B-110</td>
+                <td>B-109</td>
+                <td><span class="status warning">Не соответствует</span></td>
+                <td>Конфигурация НЕ сохранена</td>
+              </tr>
+              <tr>
+                <td>192.168.1.12</td>
+                <td>C-018</td>
+                <td>—</td>
+                <td><span class="status muted">Ping</span></td>
+                <td>Устройство недоступно</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="safety-section" id="safety">
+        <div class="section-heading">
+          <p class="eyebrow">Важные ограничения</p>
+          <h2>Секреты не должны попадать в публичный репозиторий</h2>
+          <p>
+            Логин, пароль и адреса оборудования лучше хранить локально в конфиге или переменных окружения.
+            На сайте опубликована только логика работы, без реальных учетных данных.
+          </p>
+        </div>
+
+        <div class="cards">
+          <article>
+            <h3>Защита от неверной платы</h3>
+            <p>Несовпадение Shelf ID блокирует сохранение конфигурации и отправляет <code>N</code> на выходе.</p>
+          </article>
+          <article>
+            <h3>Полная трассировка</h3>
+            <p>Файл <code>save_conf.log</code> фиксирует ping, авторизацию, Shelf ID, logout и ошибки.</p>
+          </article>
+          <article>
+            <h3>Продолжение при ошибках</h3>
+            <p>Исключение на одном IP записывается в отчет, после чего обработка идет дальше.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="setup-section" id="setup">
+        <div>
+          <p class="eyebrow">Быстрый старт</p>
+          <h2>Минимальная структура запуска</h2>
+          <p>
+            Подготовьте файл <code>ip адреса.xlsx</code> со столбцами <code>IP Address</code> и <code>Shelf ID</code>,
+            установите зависимости и запустите скрипт.
+          </p>
+        </div>
+        <pre class="code-block"><code>pip install pandas openpyxl telnetlib3
+python save_conf.py</code></pre>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>Telnet Config Saver</span>
+      <a href="https://github.com/dom26312/test1">GitHub repository</a>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
