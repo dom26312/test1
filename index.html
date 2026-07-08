@@ -3,200 +3,149 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Сайт проекта автоматического сохранения конфигурации плат по Telnet с проверкой Shelf ID.">
-    <title>Telnet Config Saver</title>
+    <meta name="description" content="Веб-интерфейс для контроля Telnet-сохранения конфигурации плат с проверкой Shelf ID.">
+    <title>Web Telnet Control</title>
     <link rel="stylesheet" href="styles.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script defer src="script.js"></script>
   </head>
   <body>
-    <header class="site-header">
-      <a class="brand" href="#top" aria-label="Telnet Config Saver">
-        <span class="brand-mark">TC</span>
-        <span>Telnet Config Saver</span>
+    <header class="app-header">
+      <a class="brand" href="#app" aria-label="Web Telnet Control">
+        <span class="brand-mark">WT</span>
+        <span>Web Telnet Control</span>
       </a>
-      <nav class="nav" aria-label="Главная навигация">
-        <a href="#workflow">Алгоритм</a>
-        <a href="#report">Отчет</a>
-        <a href="#safety">Безопасность</a>
-        <a class="nav-action" href="#setup">Запуск</a>
+      <nav class="top-nav" aria-label="Навигация">
+        <a href="#devices">Устройства</a>
+        <a href="#log">Лог</a>
+        <a href="https://github.com/dom26312/test1">GitHub</a>
       </nav>
     </header>
 
-    <main id="top">
-      <section class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow">Python-автоматизация для сетевого оборудования</p>
-          <h1>Сохраняет конфигурацию только после проверки Shelf ID</h1>
-          <p class="hero-text">
-            Приложение проходит по IP-адресам из Excel, проверяет доступность, авторизуется по Telnet,
-            сверяет Shelf ID и выполняет <code>save conf</code> только при полном совпадении.
+    <main id="app" class="app-shell">
+      <section class="control-surface" aria-label="Панель управления Telnet">
+        <div class="control-copy">
+          <p class="eyebrow">Excel -> Ping -> Telnet -> Shelf ID -> report.xlsx</p>
+          <h1>Панель запуска сохранения конфигурации</h1>
+          <p>
+            Загрузите Excel со столбцами <code>IP Address</code> и <code>Shelf ID</code>, запустите обработку
+            и скачайте отчет по каждой плате.
           </p>
-          <div class="hero-actions">
-            <a class="button primary" href="#setup">Посмотреть запуск</a>
-            <a class="button secondary" href="#workflow">Изучить алгоритм</a>
+          <div class="runtime-note">
+            <strong>GitHub Pages режим:</strong>
+            <span>браузер не выполняет настоящий Ping/Telnet. Этот экран готов для подключения локального backend и сейчас показывает безопасный demo-run.</span>
           </div>
         </div>
 
-        <div class="terminal-panel" aria-label="Демонстрация выполнения">
-          <div class="terminal-top">
-            <span></span>
-            <span></span>
-            <span></span>
-            <strong>save_conf.log</strong>
+        <div class="operator-panel">
+          <label class="upload-zone" for="excelFile">
+            <span class="upload-icon">XLSX</span>
+            <strong id="fileName">Выберите Excel-файл</strong>
+            <small>Поддерживаются .xlsx, .xls, .csv</small>
+            <input id="excelFile" type="file" accept=".xlsx,.xls,.csv">
+          </label>
+
+          <div class="actions">
+            <button class="button primary" id="startBtn" type="button" disabled>Начать</button>
+            <button class="button secondary" id="reportBtn" type="button" disabled>Отчет</button>
+            <button class="icon-button" id="resetBtn" type="button" title="Очистить" aria-label="Очистить">↻</button>
           </div>
-          <div class="terminal-body" id="terminalLog">
-            <p><span>10:18:02</span> 192.168.1.10 ping OK</p>
-            <p><span>10:18:04</span> Telnet login success</p>
-            <p><span>10:18:05</span> Shelf ID: A-204 expected A-204</p>
-            <p><span>10:18:06</span> save conf executed</p>
+
+          <div class="progress-wrap" aria-label="Прогресс обработки">
+            <div class="progress-meta">
+              <span id="progressLabel">Ожидание файла</span>
+              <strong id="progressCount">0 / 0</strong>
+            </div>
+            <div class="progress-track">
+              <span id="progressBar"></span>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="stats-band" aria-label="Ключевые параметры">
+      <section class="metrics-band" aria-label="Сводка">
         <article>
-          <strong>3</strong>
-          <span>попытки входа</span>
+          <span>Всего</span>
+          <strong id="totalCount">0</strong>
         </article>
         <article>
-          <strong>23</strong>
-          <span>порт Telnet</span>
+          <span>Сохранено</span>
+          <strong id="savedCount">0</strong>
         </article>
         <article>
-          <strong>2 сек</strong>
-          <span>timeout ping</span>
+          <span>Несовпадение</span>
+          <strong id="mismatchCount">0</strong>
         </article>
         <article>
-          <strong>XLSX</strong>
-          <span>вход и отчет</span>
+          <span>Ошибки доступа</span>
+          <strong id="failedCount">0</strong>
         </article>
       </section>
 
-      <section class="section-grid" id="workflow">
-        <div class="section-heading">
-          <p class="eyebrow">Логика обработки</p>
-          <h2>Понятный маршрут для каждого IP</h2>
-          <p>
-            Ошибка на одной плате не останавливает обработку остальных устройств.
-            Каждый результат попадает в отчет и лог.
-          </p>
+      <section class="workspace-grid">
+        <div class="panel devices-panel" id="devices">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Очередь обработки</p>
+              <h2>Устройства</h2>
+            </div>
+            <button class="button ghost" id="sampleBtn" type="button">Пример данных</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>IP</th>
+                  <th>Shelf ID ожидаемый</th>
+                  <th>Shelf ID полученный</th>
+                  <th>Статус</th>
+                  <th>Комментарий</th>
+                </tr>
+              </thead>
+              <tbody id="deviceRows">
+                <tr class="empty-row">
+                  <td colspan="5">Загрузите Excel или откройте пример данных.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div class="workflow-list">
-          <article class="step active" data-log="ping">
-            <span>01</span>
-            <h3>Ping</h3>
-            <p>Если устройство недоступно, статус сразу фиксируется как «Недоступен (Ping)».</p>
-          </article>
-          <article class="step" data-log="telnet">
-            <span>02</span>
-            <h3>Telnet</h3>
-            <p>Подключение к порту 23 и до трех попыток авторизации.</p>
-          </article>
-          <article class="step" data-log="shelf">
-            <span>03</span>
-            <h3>Shelf ID</h3>
-            <p>Команда <code>show shelf-id</code> возвращает значение для сравнения с Excel.</p>
-          </article>
-          <article class="step" data-log="save">
-            <span>04</span>
-            <h3>Save</h3>
-            <p><code>save conf</code> выполняется только при совпадении Shelf ID.</p>
-          </article>
-        </div>
+        <aside class="panel log-panel" id="log">
+          <div class="panel-head compact">
+            <div>
+              <p class="eyebrow">save_conf.log</p>
+              <h2>Журнал</h2>
+            </div>
+            <button class="icon-button" id="downloadLogBtn" type="button" title="Скачать лог" aria-label="Скачать лог" disabled>↓</button>
+          </div>
+          <pre id="logOutput" class="log-output">Ожидание запуска...</pre>
+        </aside>
       </section>
 
-      <section class="report-section" id="report">
-        <div>
-          <p class="eyebrow">report.xlsx</p>
-          <h2>Отчет показывает, что произошло с каждой платой</h2>
-          <p>
-            В итоговой таблице видны ожидаемый и полученный Shelf ID, финальный статус и короткий комментарий.
-          </p>
+      <section class="pipeline">
+        <div class="pipeline-step active">
+          <span>01</span>
+          <strong>Ping</strong>
+          <small>Проверка доступности</small>
         </div>
-
-        <div class="table-wrap" role="region" aria-label="Пример отчета">
-          <table>
-            <thead>
-              <tr>
-                <th>IP</th>
-                <th>Ожидаемый</th>
-                <th>Полученный</th>
-                <th>Статус</th>
-                <th>Комментарий</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>192.168.1.10</td>
-                <td>A-204</td>
-                <td>A-204</td>
-                <td><span class="status success">Сохранена</span></td>
-                <td>Shelf ID совпадает</td>
-              </tr>
-              <tr>
-                <td>192.168.1.11</td>
-                <td>B-110</td>
-                <td>B-109</td>
-                <td><span class="status warning">Не соответствует</span></td>
-                <td>Конфигурация НЕ сохранена</td>
-              </tr>
-              <tr>
-                <td>192.168.1.12</td>
-                <td>C-018</td>
-                <td>—</td>
-                <td><span class="status muted">Ping</span></td>
-                <td>Устройство недоступно</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="pipeline-step">
+          <span>02</span>
+          <strong>Telnet</strong>
+          <small>Авторизация до 3 попыток</small>
         </div>
-      </section>
-
-      <section class="safety-section" id="safety">
-        <div class="section-heading">
-          <p class="eyebrow">Важные ограничения</p>
-          <h2>Секреты не должны попадать в публичный репозиторий</h2>
-          <p>
-            Логин, пароль и адреса оборудования лучше хранить локально в конфиге или переменных окружения.
-            На сайте опубликована только логика работы, без реальных учетных данных.
-          </p>
+        <div class="pipeline-step">
+          <span>03</span>
+          <strong>Shelf ID</strong>
+          <small>Команда show shelf-id</small>
         </div>
-
-        <div class="cards">
-          <article>
-            <h3>Защита от неверной платы</h3>
-            <p>Несовпадение Shelf ID блокирует сохранение конфигурации и отправляет <code>N</code> на выходе.</p>
-          </article>
-          <article>
-            <h3>Полная трассировка</h3>
-            <p>Файл <code>save_conf.log</code> фиксирует ping, авторизацию, Shelf ID, logout и ошибки.</p>
-          </article>
-          <article>
-            <h3>Продолжение при ошибках</h3>
-            <p>Исключение на одном IP записывается в отчет, после чего обработка идет дальше.</p>
-          </article>
+        <div class="pipeline-step">
+          <span>04</span>
+          <strong>save conf</strong>
+          <small>Только при совпадении</small>
         </div>
-      </section>
-
-      <section class="setup-section" id="setup">
-        <div>
-          <p class="eyebrow">Быстрый старт</p>
-          <h2>Минимальная структура запуска</h2>
-          <p>
-            Подготовьте файл <code>ip адреса.xlsx</code> со столбцами <code>IP Address</code> и <code>Shelf ID</code>,
-            установите зависимости и запустите скрипт.
-          </p>
-        </div>
-        <pre class="code-block"><code>pip install pandas openpyxl telnetlib3
-python save_conf.py</code></pre>
       </section>
     </main>
-
-    <footer class="site-footer">
-      <span>Telnet Config Saver</span>
-      <a href="https://github.com/dom26312/test1">GitHub repository</a>
-    </footer>
-
-    <script src="script.js"></script>
   </body>
 </html>
