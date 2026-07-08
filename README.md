@@ -12,10 +12,9 @@
 
 В репозитории откройте `Settings` → `Pages` и выберите:
 
-- Source: `Deploy from a branch`
-- Branch: `main`
-- Folder: `/root`
+- Source: `GitHub Actions`
 
+Workflow `.github/workflows/pages.yml` опубликует статический сайт из корня репозитория.
 После публикации сайт будет доступен по адресу GitHub Pages для репозитория.
 
 ## Безопасность
